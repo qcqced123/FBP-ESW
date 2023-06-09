@@ -16,4 +16,4 @@ def main(config_path: str, cfg) -> None:
 
 
 if __name__ == '__main__':
-    main('image2text_config.json', CFG)
+    main('fbp2_config.json', CFG)

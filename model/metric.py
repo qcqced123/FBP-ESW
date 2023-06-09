@@ -1,9 +1,9 @@
+import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
-from numpy import ndarray
 
 
 def accuracy(output, target) -> float:
@@ -35,7 +35,11 @@ def pearson_score(y_true, y_pred) -> float:
 
 
 def recall(y_true, y_pred) -> float:
-    """ recall = tp / (tp + fn) """
+    """
+    Actual positives that the model predicted to be positive
+    Math:
+        recall = tp / (tp + fn)
+    """
     y_true = y_true.apply(lambda x: set(x.split()))
     y_pred = y_pred.apply(lambda x: set(x.split()))
     tp = np.array([len(x[0] & x[1]) for x in zip(y_true, y_pred)])
@@ -45,7 +49,11 @@ def recall(y_true, y_pred) -> float:
 
 
 def precision(y_true, y_pred) -> float:
-    """ precision = tp / (tp + fp) """
+    """
+    Actual positives among the model's positive predictions
+    Math:
+        precision = tp / (tp + fp)
+    """
     y_true = y_true.apply(lambda x: set(x.split()))
     y_pred = y_pred.apply(lambda x: set(x.split()))
     tp = np.array([len(x[0] & x[1]) for x in zip(y_true, y_pred)])
@@ -54,14 +62,22 @@ def precision(y_true, y_pred) -> float:
     return round(score.mean(), 4)
 
 
-def f_beta(y_true, y_pred, beta: float = 2) -> float:
+def f_beta(y_true, y_pred, beta: float = 1) -> float:
     """
-    f_beta = (1 + beta ** 2) * precision * recall / (beta ** 2 * precision + recall)
-    if you want to emphasize precision, set beta < 1, options: 0.3, 0.6
-    if you want to emphasize recall, set beta > 1, options: 1.5, 2
-
-    [Reference]
-    https://blog.naver.com/PostView.naver?blogId=wideeyed&logNo=221531998840&parentCategoryNo=&categoryNo=2&
+    F-beta score, in this competition, beta is 1 (micro f1 score)
+    Element Explanation:
+        tp: true positive
+        fp: false positive
+        tn: true negative
+        fn: false negative
+        if true ~, prediction == ground truth,
+        if false ~, prediction != ground truth, ~ is prediction not ground truth value
+    Math:
+        f_beta = (1 + beta ** 2) * precision * recall / (beta ** 2 * precision + recall)
+        if you want to emphasize precision, set beta < 1, options: 0.3, 0.6
+        if you want to emphasize recall, set beta > 1, options: 1.5, 2
+    Reference:
+        https://blog.naver.com/PostView.naver?blogId=wideeyed&logNo=221531998840&parentCategoryNo=&categoryNo=2&
     """
     y_true = y_true.apply(lambda x: set(x.split()))
     y_pred = y_pred.apply(lambda x: set(x.split()))
@@ -76,7 +92,7 @@ def f_beta(y_true, y_pred, beta: float = 2) -> float:
 
 def map_k(y_true: any, y_pred: any, k: int) -> Tensor:
     """
-    mAP@K: mean of average precision@k
+    Mean average precision for top-k
     Args:
         y_true: string or int, must be sorted by descending probability and type must be same with y_pred
                 (batch_size, labels)
@@ -124,3 +140,81 @@ class CosineSimilarity(nn.Module):
 
     def forward(self, x1: Tensor, x2: Tensor) -> Tensor:
         return F.cosine_similarity(x1, x2, self.dim, self.eps)  # need to add mean for batch
+
+
+def calc_overlap(row: pd.Series) -> list:
+    """
+    Calculates the overlap between prediction and ground truth and overlap percentages
+    used for determining true positives for F1-Score, gt is abbreviation for ground truth
+    """
+    set_pred = set(row.predictionstring_pred.split(' '))
+    set_gt = set(row.predictionstring_gt.split(' '))
+    # Length of each and intersection
+    len_gt = len(set_gt)
+    len_pred = len(set_pred)
+    inter = len(set_gt.intersection(set_pred))
+    overlap_1 = inter / len_gt  # Recall
+    overlap_2 = inter / len_pred  # Precision
+    return [overlap_1, overlap_2]
+
+
+def calculate_f1(pred_df: pd.DataFrame, gt_df: pd.DataFrame) -> float:
+    """
+    Function for scoring for competition
+    Step 1:
+        Make dataframe all ground truths and predictions for a given class are compared
+    Step 2:
+        If the overlap between the ground truth and prediction is >= 0.5 (Recall),
+        and the overlap between the prediction and the ground truth >= 0.5 (Precision),
+        In other words, prediction will be accepted 'True Positive',
+        when Precision & Recall greater than 0.5
+        the prediction is a match and considered a true positive.
+        If multiple matches exist, the match with the highest pair of overlaps is taken.
+        And then count number of Potential True Positive ids
+    Step 3:
+        Any unmatched ground truths are false negatives and any unmatched predictions are false positives.
+        And then count number of Potential False Positives
+    Step 4.
+        Calculate Micro F1-Score for Cross Validation
+    Reference:
+        https://www.kaggle.com/c/feedback-prize-2021/overview/evaluation
+    """
+    gt_df = gt_df[['id', 'discourse_type', 'predictionstring']].reset_index(drop=True).copy()
+    pred_df = pred_df[['id', 'class', 'predictionstring']].reset_index(drop=True).copy()
+    pred_df['pred_id'] = pred_df.index
+    gt_df['gt_id'] = gt_df.index
+
+    # Stage 1. Make dataframe
+    joined = pred_df.merge(
+        gt_df,
+        left_on=['id', 'class'],
+        right_on=['id', 'discourse_type'],
+        how='outer',
+        suffixes=('_pred', '_gt')
+    )
+    joined['predictionstring_gt'] = joined['predictionstring_gt'].fillna(' ')
+    joined['predictionstring_pred'] = joined['predictionstring_pred'].fillna(' ')
+    joined['overlaps'] = joined.apply(calc_overlap, axis=1)  # Calculate Overlapped Percentage
+
+    # Stage 2. Calculate Potential True Positive
+    joined['overlap1'] = joined['overlaps'].apply(lambda x: eval(str(x))[0])
+    joined['overlap2'] = joined['overlaps'].apply(lambda x: eval(str(x))[1])
+
+    joined['potential_TP'] = (joined['overlap1'] >= 0.5) & (joined['overlap2'] >= 0.5)  # Precision & Recall
+    joined['max_overlap'] = joined[['overlap1', 'overlap2']].max(axis=1)
+    tp_pred_ids = joined.query('potential_TP') \
+        .sort_values('max_overlap', ascending=False) \
+        .groupby(['id', 'predictionstring_gt']).first()['pred_id'].values
+
+    # stage 3. Calculate Potential False Positive
+    fp_pred_ids = [p for p in joined['pred_id'].unique() if p not in tp_pred_ids]
+
+    matched_gt_ids = joined.query('potential_TP')['gt_id'].unique()
+    unmatched_gt_ids = [c for c in joined['gt_id'].unique() if c not in matched_gt_ids]
+
+    # Stage 4. Calculate Micro F1-Score for Cross Validation
+    tp = len(tp_pred_ids)
+    fp = len(fp_pred_ids)
+    fn = len(unmatched_gt_ids)
+    score = tp / (tp + 0.5 * (fp + fn))
+    return score
