@@ -11,31 +11,31 @@ g.manual_seed(CFG.seed)
 def train_loop(cfg: any) -> None:
     """ Base Trainer Loop Function """
     fold_list = [i for i in range(cfg.n_folds)]
-    for fold in tqdm(fold_list[1:2]):
+    for fold in tqdm(fold_list):
         print(f'============== {fold}th Fold Train & Validation ==============')
         wandb.init(
             project=cfg.name,
-            name=f'SD2_fold{fold}/' + cfg.model,
+            name=f'FBP2_fold{fold}/' + cfg.model,
             config=class2dict(cfg),
-            group=f'SD2_{cfg.image_pooling}/{cfg.model}',
+            group=f'FBP2/{cfg.model}',
             job_type='train',
             entity="qcqced"
         )
-        early_stopping = EarlyStopping(mode=cfg.stop_mode, patience=2)
+        early_stopping = EarlyStopping(mode=cfg.stop_mode, patience=3)
         early_stopping.detecting_anomaly()
 
         val_score_max = -np.inf
         train_input = getattr(trainer, cfg.name)(cfg, g)  # init object
         loader_train, loader_valid, train = train_input.make_batch(fold)
-        model, style_model, criterion, val_metrics, optimizer, lr_scheduler = train_input.model_setting(len(train))
+        model, criterion, val_metrics, optimizer, lr_scheduler = train_input.model_setting(len(train))
 
         for epoch in range(cfg.epochs):
             print(f'[{epoch + 1}/{cfg.epochs}] Train & Validation')
             train_loss = train_input.train_fn(
-                loader_train, model, style_model, criterion, optimizer, lr_scheduler
+                loader_train, model, criterion, optimizer, lr_scheduler
             )
             valid_metric = train_input.valid_fn(
-                loader_valid, model, style_model, val_metrics
+                loader_valid, model, val_metrics
             )
             wandb.log({
                 '<epoch> Train Loss': train_loss,
@@ -57,6 +57,6 @@ def train_loop(cfg: any) -> None:
             del train_loss, valid_metric
             gc.collect(), torch.cuda.empty_cache()
 
-        del model, style_model, loader_train, loader_valid, train  # delete for next fold
+        del model, loader_train, loader_valid, train  # delete for next fold
         gc.collect(), torch.cuda.empty_cache()
         wandb.finish()

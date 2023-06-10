@@ -1,0 +1,13 @@
+Some weights of the model checkpoint at microsoft/deberta-v3-large were not used when initializing DebertaV2Model: ['mask_predictions.classifier.weight', 'mask_predictions.LayerNorm.weight', 'lm_predictions.lm_head.LayerNorm.weight', 'lm_predictions.lm_head.dense.bias', 'lm_predictions.lm_head.bias', 'mask_predictions.dense.weight', 'mask_predictions.dense.bias', 'mask_predictions.LayerNorm.bias', 'lm_predictions.lm_head.LayerNorm.bias', 'lm_predictions.lm_head.dense.weight', 'mask_predictions.classifier.bias']
+- This IS expected if you are initializing DebertaV2Model from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing DebertaV2Model from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+Traceback (most recent call last):
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/train.py", line 19, in <module>
+    main('fbp2_config.json', CFG)
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/train.py", line 15, in main
+    getattr(train_loop, cfg.loop)(cfg)
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/trainer/train_loop.py", line 30, in train_loop
+    model, criterion, val_metrics, optimizer, lr_scheduler = train_input.model_setting(len(train))
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/trainer/trainer.py", line 80, in model_setting
+    val_metrics = getattr(model_metric, self.cfg.metrics)()
+AttributeError: module 'model.metric' has no attribute 'KendallTau'

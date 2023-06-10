@@ -50,6 +50,7 @@ def prepare_device(n_gpu_use):
     list_ids = list(range(n_gpu_use))
     return device, list_ids
 
+
 class MetricTracker:
     def __init__(self, *keys, writer=None):
         self.writer = writer

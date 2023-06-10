@@ -16,7 +16,7 @@
     "common_settings": {
         "wandb": true,
         "optuna": false,
-        "competition": "GoogleAi4Code",
+        "competition": "FBP2",
         "seed": 42,
         "n_gpu": 1,
         "gpu_id": 0,
@@ -26,8 +26,8 @@
         "n_folds": 5,
         "max_len": 2048,
         "epochs": 5,
-        "batch_size": 1,
-        "val_batch_size": 1
+        "batch_size": 16,
+        "val_batch_size": 16
     },
     "gradient_settings": {
         "amp_scaler": true,
@@ -41,7 +41,7 @@
         "reduction": "mean"
     },
     "metrics_options": {
-        "metrics": "KendallTau"
+        "metrics": "CosineSimilarity"
     },
     "optimizer_options": {
         "optimizer": "AdamW",
