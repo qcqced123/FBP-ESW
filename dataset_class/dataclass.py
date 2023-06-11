@@ -69,7 +69,7 @@ class NERDataset(Dataset):
                         np.unique(split_idxs)) > 1 else split_idxs[0]
                     if split_index != -1:
                         if self.is_train:
-                            label_ids.append(labels2ids[word_labels[split_index]])
+                            label_ids.append(self.labels2ids[word_labels[split_index]])
                         split_word_ids[token_idx] = split_index
                     else:
                         # Even if we don't find a word, continue labeling 'I' tokens until a 'B' token is found
@@ -83,12 +83,11 @@ class NERDataset(Dataset):
                 else:
                     if self.is_train:
                         label_ids.append(-100)
-        labels = list(reversed(label_ids))   # restore to original order
         if not self.is_train:
             encoding['word_ids'] = torch.as_tensor(split_word_ids)
         else:
+            encoding['labels'] = list(reversed(label_ids))
             for k, v in encoding.items():
                 encoding[k] = torch.as_tensor(v)
-            labels = torch.as_tensor(labels)
-        return encoding, labels
+        return encoding
 

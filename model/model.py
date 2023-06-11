@@ -29,16 +29,21 @@ class NERModel(nn.Module):
             config=self.auto_cfg
         )
         self.fc = nn.Linear(self.auto_cfg.hidden_size, 15)  # BIO Style NER Task
+        if self.cfg.load_pretrained:
+            self.model.load_state_dict(
+                torch.load(cfg.checkpoint_dir + cfg.state_dict),
+                strict=False
+            )  # load student model's weight: it already has fc layer, so need to init fc layer later
 
-        if self.cfg.reinit:
+        if cfg.reinit:
             self._init_weights(self.fc)
             reinit_topk(self.model, cfg.num_reinit)
 
-        if self.cfg.freeze:
+        if cfg.freeze:
             freeze(self.model.embeddings)
             freeze(self.model.encoder.layer[:cfg.num_freeze])
 
-        if self.cfg.gradient_checkpoint:
+        if cfg.gradient_checkpoint:
             self.model.gradient_checkpointing_enable()
 
     def _init_weights(self, module) -> None:
@@ -67,17 +72,25 @@ class NERModel(nn.Module):
             module.weight.data.fill_(1.0)
             module.bias.data.zero_()
 
-    def feature(self, inputs: dict):
-        outputs = self.model(**inputs)
+    def feature(self, inputs_ids, attention_mask, token_type_ids):
+        outputs = self.model(
+            input_ids=inputs_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids
+        )
         return outputs
 
-    def forward(self, inputs: dict[Tensor, Tensor, Tensor]) -> Tensor:
+    def forward(self, inputs) -> Tensor:
         """
         No Pooling Layer for word-level task
         Args:
             inputs: Dict type from AutoTokenizer
-            => {input_ids: Tensor[], attention_mask: Tensor[], token_type_ids: Tensor[]}
+            => {input_ids, attention_mask, token_type_ids, offset_mapping, labels}
         """
-        outputs = self.feature(inputs)
+        outputs = self.feature(
+            inputs_ids=inputs["input_ids"],
+            attention_mask=inputs["attention_mask"],
+            token_type_ids=inputs["token_type_ids"],
+        )
         logit = self.fc(outputs.last_hidden_state)
         return logit

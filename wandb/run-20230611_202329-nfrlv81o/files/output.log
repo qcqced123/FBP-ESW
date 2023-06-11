@@ -1,0 +1,19 @@
+Some weights of the model checkpoint at microsoft/deberta-v3-large were not used when initializing DebertaV2Model: ['lm_predictions.lm_head.bias', 'mask_predictions.classifier.weight', 'mask_predictions.LayerNorm.weight', 'mask_predictions.LayerNorm.bias', 'mask_predictions.dense.weight', 'lm_predictions.lm_head.dense.weight', 'lm_predictions.lm_head.dense.bias', 'lm_predictions.lm_head.LayerNorm.weight', 'lm_predictions.lm_head.LayerNorm.bias', 'mask_predictions.classifier.bias', 'mask_predictions.dense.bias']
+- This IS expected if you are initializing DebertaV2Model from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing DebertaV2Model from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+Traceback (most recent call last):
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/train.py", line 19, in <module>
+    main('fbp2_config.json', CFG)
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/train.py", line 15, in main
+    getattr(train_loop, cfg.loop)(cfg)
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/trainer/train_loop.py", line 30, in train_loop
+    model, criterion, val_metrics, optimizer, lr_scheduler = train_input.model_setting(len(train))
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/trainer/trainer.py", line 73, in model_setting
+    model = getattr(model_arch, self.cfg.model_arch)(self.cfg)
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/model/model.py", line 40, in __init__
+    reinit_topk(self.model, cfg.num_reinit)
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/model/model_utils.py", line 88, in reinit_topk
+    model.encoder.layers[-num_layers:].apply(model._init_weights)
+  File "/home/qcqced/anaconda3/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1614, in __getattr__
+    raise AttributeError("'{}' object has no attribute '{}'".format(
+AttributeError: 'DebertaV2Encoder' object has no attribute 'layers'

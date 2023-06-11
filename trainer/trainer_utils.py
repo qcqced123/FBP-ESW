@@ -15,7 +15,7 @@ def get_optimizer_grouped_parameters(model, layerwise_lr, layerwise_weight_decay
                                      "lr": layerwise_lr,
                                      }, ]
     # initialize lrs for every layer
-    layers = [model.embeddings] + list(model.encoder.layers)
+    layers = [model.model.embeddings] + list(model.model.encoder.layer)
     layers.reverse()
     lr = layerwise_lr
     for layer in layers:
@@ -33,6 +33,7 @@ def get_optimizer_grouped_parameters(model, layerwise_lr, layerwise_weight_decay
 
 
 def get_optimizer_params(model, encoder_lr, decoder_lr, weight_decay):
+    """ Layer-wise Learning Rate Decay """
     no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
     optimizer_parameters = [
         {'params': [p for n, p in model.model.named_parameters() if not any(nd in n for nd in no_decay)],

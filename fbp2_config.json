@@ -41,7 +41,7 @@
         "reduction": "mean"
     },
     "metrics_options": {
-        "metrics": "CosineSimilarity"
+        "metrics": "ConfusionMatrixMetrics"
     },
     "optimizer_options": {
         "optimizer": "AdamW",
@@ -71,7 +71,7 @@
         "freeze": true,
         "num_freeze": 12,
         "reinit": true,
-        "num_reinit": 0,
+        "num_reinit": 4,
         "awp": false,
         "nth_awp_start_epoch": 2,
         "awp_eps": 1e-2,

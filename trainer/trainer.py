@@ -5,6 +5,8 @@ import model.metric as model_metric
 import model.metric_learning as metric_learning
 import model.model as model_arch
 from torch.utils.data import DataLoader
+
+from dataset_class import data_preprocessing
 from dataset_class.data_preprocessing import *
 from utils.helper import *
 from trainer.trainer_utils import *
@@ -66,7 +68,7 @@ class NERTrainer:
             pin_memory=True,
             drop_last=False,
         )
-        return loader_train, loader_valid, train
+        return loader_train, loader_valid, train, valid
 
     def model_setting(self, len_train: int):
         """ set train & validation options for main train loop """
@@ -94,25 +96,25 @@ class NERTrainer:
         return model, criterion, val_metrics, optimizer, lr_scheduler
 
     # Train Function
-    def train_fn(self, loader_train, model, criterion, optimizer, lr_scheduler):
+    def train_fn(self, loader_train, model, criterion, optimizer, lr_scheduler, val_metrics):
         """ Training Function """
         torch.autograd.set_detect_anomaly(True)
         scaler = torch.cuda.amp.GradScaler(enabled=self.cfg.amp_scaler)
         losses = AverageMeter()
+        train_accuracy, train_recall, train_precision = AverageMeter(), AverageMeter(), AverageMeter()
         model.train()
-        for step, (inputs, labels) in enumerate(tqdm(loader_train)):  # Maybe need to append
+        for step, inputs in enumerate(tqdm(loader_train)):  # Maybe need to append
             optimizer.zero_grad()
             inputs = collate(inputs)
             for k, v in inputs.items():
                 inputs[k] = v.to(self.cfg.device)  # input_ids, attention_mask, token_type_ids to GPU
-            labels = labels.to(self.cfg.device)  # labels to GPU
+            labels = inputs.labels.view(-1)  # labels to GPU
             batch_size = self.cfg.batch_size
             with torch.cuda.amp.autocast(enabled=self.cfg.amp_scaler):
-                pred = model(inputs)
-                loss = criterion(pred, labels)
+                pred = model(inputs).view(-1, 15)
+                loss = criterion(pred, labels)  # loss = criterion(pred.view(-1, 15), labels.view(-1))
             if self.cfg.n_gradient_accumulation_steps > 1:
                 loss = loss / self.cfg.n_gradient_accumulation_steps
-
             scaler.scale(loss).backward()
             losses.update(loss.detach(), batch_size)
 
@@ -125,29 +127,101 @@ class NERTrainer:
                 scaler.step(optimizer)
                 scaler.update()
                 lr_scheduler.step()
+            """ Calculate Train Metrics """
+            flat_pred = torch.argmax(pred, dim=1)  # shape (batch_size * seq_len,)
+
+            active_label = labels.view(-1) != -100  # shape (batch_size, seq_len)
+            labels = torch.masked_select(
+                flat_pred,
+                active_label
+            )
+            pred = torch.masked_select(
+                flat_pred,
+                labels
+            )
+            t_accuracy, t_recall, t_precision = val_metrics(
+                pred.detach().cpu().numpy(),
+                labels.detach().cpu().numpy()
+            )
+            train_accuracy.update(t_accuracy, batch_size)
+            train_recall.update(t_recall, batch_size)
+            train_precision.update(t_precision, batch_size)
 
             gc.collect()
 
-        train_loss = losses.avg.detach().cpu().numpy()
-        return train_loss
+        train_loss = losses.avg.numpy()
+        return train_loss, train_accuracy.avg, train_recall.avg, train_precision.avg
 
     # Validation Function
-    def valid_fn(self, loader_valid, model, val_metrics) -> float:
+    def valid_fn(self, valid, loader_valid, model, val_metrics) -> tuple[list, list, float, float, float]:
         """ Validation Functions """
+        ids_to_labels = data_preprocessing.ids2labels()
+        val_pred_list, val_label_list = [], []
+        val_accuracy, val_recall, val_precision = AverageMeter(), AverageMeter(), AverageMeter()
         metrics = AverageMeter()
         model.eval()
         with torch.no_grad():
-            for step, (inputs, labels) in enumerate(tqdm(loader_valid)):  # Maybe need to append
+            for step, inputs in enumerate(tqdm(loader_valid)):  # Maybe need to append
                 inputs = collate(inputs)
                 for k, v in inputs.items():
                     inputs[k] = v.to(self.cfg.device)  # prompt to GPU
-
-                val_batch_size = inputs.shape[0]
-                labels = labels.to(self.cfg.device)  # labels to GPU
+                labels = inputs.labels  # labels to GPU
+                val_batch_size = self.cfg.val_batch_size
                 val_pred = model(inputs)
-                val_metric = val_metrics(cell_features, ranks)
-                metrics.update(val_metric.detach(), 1)
 
-        metric = metrics.avg.detach().cpu().numpy()
+                flat_val_pred = torch.argmax(val_pred, dim=1)  # shape (batch_size * seq_len,)
+                active_label = labels.view(-1) != -100  # shape (batch_size, seq_len)
+                labels = torch.masked_select(
+                    flat_val_pred,
+                    active_label
+                )
+                val_pred = torch.masked_select(
+                    flat_val_pred,
+                    labels
+                )
+
+                val_pred_list.extend(val_pred)
+                val_label_list.extend(labels)
+
+                v_accuracy, v_recall, v_precision = val_metrics(
+                    val_pred.detach().cpu().numpy(),
+                    labels.detach().cpu().numpy()
+                )
+                val_accuracy.update(v_accuracy, val_batch_size)
+                val_recall.update(v_recall, val_batch_size)
+                val_precision.update(v_precision, val_batch_size)
+
+        predictions = [ids_to_labels[pred_id.item()] for pred_id in val_pred_list]
+        labels = [ids_to_labels[label_id.item()] for label_id in val_label_list]
+
+        final_pred = []
+        for i in range(len(valid)):
+
+            idx = valid.id.values[i]
+            # pred = [x.replace('B-','').replace('I-','') for x in y_pred2[i]]
+            pred = predictions[i]  # Leave "B" and "I"
+            tmp_pred = []
+            j = 0
+            while j < len(pred):
+                cls = pred[j]
+                if cls == 'O':
+                    j += 1
+                else:
+                    cls = cls.replace('B', 'I')  # spans start with B
+                end = j + 1
+                while end < len(pred) and pred[end] == cls:
+                    end += 1
+
+                if cls != 'O' and cls != '' and end - j > 7:
+                    final_pred.append((idx, cls.replace('I-', ''),
+                                         ' '.join(map(str, list(range(j, end))))))
+
+                j = end
+
+        oof = pd.DataFrame(final_pred)
+        oof.columns = ['id', 'class', 'predictionstring']
+
+
+
         gc.collect()
-        return metric
+        return predictions, labels, val_accuracy.avg, val_recall.avg, val_precision.avg

@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from sklearn.metrics import accuracy_score, recall_score, precision_score
 from torch import Tensor
 
 
@@ -102,6 +103,44 @@ def map_k(y_true: any, y_pred: any, k: int) -> Tensor:
     """
     score = np.array([1 / (pred[:k].index(label) + 1) for label, pred in zip(y_true, y_pred)])
     return round(score.mean(), 4)
+
+
+class ConfusionMatrixMetrics(nn.Module):
+    """
+    This class is calculating metrics from confusion matrix, such as Accuracy, Precision, Recall by sklearn.metric
+    Return:
+        accuracy: (tp + tn) / (tp + tn + fp + fn)
+        recall: tp / (tp + fn), average = 'micro'
+        precision: tp / (tp + fp), average = 'micro'
+    """
+    def __init__(self):
+        super(ConfusionMatrixMetrics, self).__init__()
+
+    @staticmethod
+    def forward(y_pred, y_true) -> tuple[float, float, float]:
+        accuracy_metric = accuracy_score(y_true, y_pred)
+        recall_metric = recall_score(y_true, y_pred, average='micro')
+        precision_metric = precision_score(y_true, y_pred, average='micro')
+        return accuracy_metric, recall_metric, precision_metric
+
+
+class Recall(nn.Module):
+    def __init__(self):
+        super(Recall, self).__init__()
+
+    @staticmethod
+    def forward(y_pred, y_true) -> float:
+        """
+        Actual positives that the model predicted to be positive
+        Math:
+            recall = tp / (tp + fn)
+        """
+        y_true = y_true.apply(lambda x: set(x.split()))
+        y_pred = y_pred.apply(lambda x: set(x.split()))
+        tp = np.array([len(x[0] & x[1]) for x in zip(y_true, y_pred)])
+        fn = np.array([len(x[0] - x[1]) for x in zip(y_true, y_pred)])
+        score = tp / (tp + fn)
+        return round(score.mean(), 4)
 
 
 class PearsonScore(nn.Module):
