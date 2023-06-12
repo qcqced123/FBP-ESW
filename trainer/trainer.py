@@ -103,7 +103,7 @@ class NERTrainer:
         losses = AverageMeter()
         train_accuracy, train_recall, train_precision = AverageMeter(), AverageMeter(), AverageMeter()
         model.train()
-        for step, inputs in enumerate(tqdm(loader_train)):  # Maybe need to append
+        for step, (ids, inputs) in enumerate(tqdm(loader_train)):  # Maybe need to append
             optimizer.zero_grad()
             inputs = collate(inputs)
             for k, v in inputs.items():
@@ -153,24 +153,26 @@ class NERTrainer:
         return train_loss, train_accuracy.avg, train_recall.avg, train_precision.avg
 
     # Validation Function
-    def valid_fn(self, valid, loader_valid, model, val_metrics) -> tuple[list, list, float, float, float]:
+    def valid_fn(self, valid, loader_valid, model, val_metrics) -> tuple[np.ndarray, float, float, float]:
         """ Validation Functions """
         ids_to_labels = data_preprocessing.ids2labels()
-        val_pred_list, val_label_list = [], []
+        val_ids_list, val_pred_list, val_label_list = [], [], []
         val_accuracy, val_recall, val_precision = AverageMeter(), AverageMeter(), AverageMeter()
         metrics = AverageMeter()
         model.eval()
         with torch.no_grad():
-            for step, inputs in enumerate(tqdm(loader_valid)):  # Maybe need to append
+            for step, (ids, inputs) in enumerate(tqdm(loader_valid)):  # Maybe need to append
                 inputs = collate(inputs)
                 for k, v in inputs.items():
                     inputs[k] = v.to(self.cfg.device)  # prompt to GPU
+
+                val_ids_list += ids  # make list for calculating cross validation score
                 labels = inputs.labels  # labels to GPU
                 val_batch_size = self.cfg.val_batch_size
-                val_pred = model(inputs)
+                val_pred = model(inputs)  # inference for cross validation
 
-                flat_val_pred = torch.argmax(val_pred, dim=1)  # shape (batch_size * seq_len,)
-                active_label = labels.view(-1) != -100  # shape (batch_size, seq_len)
+                flat_val_pred = torch.argmax(val_pred, dim=1)
+                active_label = labels.view(-1) != -100
                 labels = torch.masked_select(
                     flat_val_pred,
                     active_label
@@ -191,15 +193,14 @@ class NERTrainer:
                 val_recall.update(v_recall, val_batch_size)
                 val_precision.update(v_precision, val_batch_size)
 
+        # 1) make dataframe for calculating cross validation score
         predictions = [ids_to_labels[pred_id.item()] for pred_id in val_pred_list]
         labels = [ids_to_labels[label_id.item()] for label_id in val_label_list]
 
         final_pred = []
-        for i in range(len(valid)):
-
-            idx = valid.id.values[i]
-            # pred = [x.replace('B-','').replace('I-','') for x in y_pred2[i]]
-            pred = predictions[i]  # Leave "B" and "I"
+        for i in range(len(val_ids_list)):
+            idx = val_ids_list[i]
+            pred = predictions[i]
             tmp_pred = []
             j = 0
             while j < len(pred):
@@ -213,15 +214,24 @@ class NERTrainer:
                     end += 1
 
                 if cls != 'O' and cls != '' and end - j > 7:
-                    final_pred.append((idx, cls.replace('I-', ''),
-                                         ' '.join(map(str, list(range(j, end))))))
-
+                    final_pred.append(
+                        (idx, cls.replace('I-', ''),
+                        ' '.join(map(str, list(range(j, end)))))
+                    )
                 j = end
+        pred_df = pd.DataFrame(final_pred)
+        pred_df.columns = ['id', 'class', 'predictionstring']
 
-        oof = pd.DataFrame(final_pred)
-        oof.columns = ['id', 'class', 'predictionstring']
+        # 2) calculate cross validation score
+        f1_list = []
+        unique_class = pred_df['class'].unique()
+        for c in unique_class:
+            pred_df = pred_df.loc[pred_df['class'] == c].copy()
+            gt_df = valid.loc[valid['discourse_type'] == c].copy()
+            f1_score = calculate_f1(pred_df, gt_df)
+            print(c, f1_score)  # print f1 score for each class
+            f1_list.append(f1_score)
 
-
-
+        final_f1_score = np.mean(f1_list)  # average == 'micro'
         gc.collect()
-        return predictions, labels, val_accuracy.avg, val_recall.avg, val_precision.avg
+        return final_f1_score, val_accuracy.avg, val_recall.avg, val_precision.avg

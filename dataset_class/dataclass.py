@@ -26,7 +26,7 @@ class NERDataset(Dataset):
     def __len__(self) -> int:
         return len(self.df)
 
-    def __getitem__(self, item: int) -> tuple[dict[Tensor, Tensor, Tensor], Tensor]:
+    def __getitem__(self, item: int) -> tuple[list, [dict[Tensor, Tensor, Tensor], Tensor]]:
         """
         1) Tokenizing input text:
             - if you param 'return_offsets_mapping' == True, tokenizer doen't erase \n or \n\n
@@ -40,6 +40,7 @@ class NERDataset(Dataset):
             - Train: dict.keys = [inputs_id, attention_mask, token_type_ids, labels]
             - Validation/Test: dict.keys = [inputs_id, attention_mask, token_type_ids, word_ids]
         """
+        ids = self.df.id[item]
         text = self.df.text[item]
         if self.is_train:
             word_labels = ast.literal_eval(self.df.entities[item])
@@ -89,5 +90,5 @@ class NERDataset(Dataset):
             encoding['labels'] = list(reversed(label_ids))
             for k, v in encoding.items():
                 encoding[k] = torch.as_tensor(v)
-        return encoding
+        return ids, encoding
 
