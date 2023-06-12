@@ -1,9 +1,10 @@
-import os
+import os, warnings
 import trainer.train_loop as train_loop
 from omegaconf import OmegaConf
 from configuration import CFG
 from utils.helper import check_library, all_type_seed
 from utils import sync_config
+warnings.filterwarnings('ignore')
 os.environ['TOKENIZERS_PARALLELISM'] = "false"
 os.environ['LRU_CACHE_CAPACITY'] = "1"
 check_library(True)

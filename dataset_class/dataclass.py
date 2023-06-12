@@ -88,7 +88,7 @@ class NERDataset(Dataset):
             encoding['word_ids'] = torch.as_tensor(split_word_ids)
         else:
             encoding['labels'] = list(reversed(label_ids))
-            for k, v in encoding.items():
-                encoding[k] = torch.as_tensor(v)
+        for k, v in encoding.items():
+            encoding[k] = torch.as_tensor(v)
         return ids, encoding
 
