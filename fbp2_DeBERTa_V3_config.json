@@ -7,10 +7,10 @@
         "resume": true,
         "state_dict": "fold2_microsoft-deberta-v3-large_state_dict.pth",
         "before_best": 0.6286,
-        "name": "NERTrainer",
+        "name": "DeBERTaTrainer",
         "loop": "train_loop",
         "dataset": "NERDataset",
-        "model_arch": "NERModel",
+        "model_arch": "DeBERTaModel",
         "model": "microsoft/deberta-v3-large",
         "pooling": "SubSequenceGEMPooling"
     },

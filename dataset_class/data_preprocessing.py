@@ -4,6 +4,8 @@ import numpy as np
 import torch
 import configuration as configuration
 from torch import Tensor
+from collections import Counter
+from bisect import bisect_left
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import KFold, GroupKFold, StratifiedGroupKFold
 from tqdm.auto import tqdm
@@ -104,6 +106,14 @@ def check_null(df: pd.DataFrame) -> pd.Series:
     return df.isnull().sum()
 
 
+def check_inf(df: pd.DataFrame) -> bool:
+    """ check if input dataframe has null type object...etc """
+    checker = False
+    if True in np.isinf(df.to_numpy()):
+        checker = True
+    return checker
+
+
 def kfold(df: pd.DataFrame, cfg) -> pd.DataFrame:
     """ KFold """
     fold = KFold(
@@ -176,8 +186,7 @@ def get_n_grams(train: pd.DataFrame, n_grams: float, top_n: float = 10):
         bag_of_words = vec.transform(texts)
         sum_words = bag_of_words.sum(axis=0)
         words_freq = [(word, sum_words[0, idx]) for word, idx in vec.vocabulary_.items()]
-        cvec_df = pd.DataFrame.from_records(words_freq,\
-                                            columns= ['words', 'counts']).sort_values(by="counts", ascending=False)
+        cvec_df = pd.DataFrame.from_records(words_freq, columns= ['words', 'counts']).sort_values(by="counts", ascending=False)
         cvec_df.insert(0, "Discourse_type", dt)
         cvec_df = cvec_df.iloc[:top_n,:]
         df_words = df_words.append(cvec_df)
@@ -273,6 +282,19 @@ def sequence_length(cfg: configuration.CFG, text_list: list) -> list:
     return length_list
 
 
+def split_mapping(unsplit):
+    """ Return array which is mapping character index to index of word in list of split() words """
+    splt = unsplit.split()
+    offset_to_wordidx = np.full(len(unsplit), -1)
+    txt_ptr = 0
+    for split_index, full_word in enumerate(splt):
+        while unsplit[txt_ptr:txt_ptr + len(full_word)] != full_word:
+            txt_ptr += 1
+        offset_to_wordidx[txt_ptr:txt_ptr + len(full_word)] = split_index
+        txt_ptr += len(full_word)
+    return offset_to_wordidx
+
+
 def sorted_quantile(array: list, q: float):
     """
     This is used to prevent re-sorting to compute quantile for every sequence.
@@ -294,14 +316,91 @@ def sorted_quantile(array: list, q: float):
     return i + (j - i) * fraction
 
 
-def split_mapping(unsplit):
-    """ Return array which is mapping character index to index of word in list of split() words """
-    splt = unsplit.split()
-    offset_to_wordidx = np.full(len(unsplit),-1)
-    txt_ptr = 0
-    for split_index, full_word in enumerate(splt):
-        while unsplit[txt_ptr:txt_ptr + len(full_word)] != full_word:
-            txt_ptr += 1
-        offset_to_wordidx[txt_ptr:txt_ptr + len(full_word)] = split_index
-        txt_ptr += len(full_word)
-    return offset_to_wordidx
+def sequence_dataset(
+    disc_type: str,
+    valid_word_preds: np.ndarray,
+    test_word_preds: np.ndarray = None,
+    pred_indices: bool = None,
+    submit: bool = False
+        ):
+    """
+    Function for making sequence dataset for changing NER Task to Multi-Class Classification Task
+    Args:
+        disc_type: discourse type, for example 'Claim', 'Evidence' later turned into target classes
+        valid_word_preds: valid word predictions from neural network which is trained NER Task
+        test_word_preds: test word predictions from neural network which is trained NER Task
+        pred_indices: indices of valid word predictions
+        submit: if True, use test_word_preds instead of valid_word_preds
+    Reference:
+        https://www.kaggle.com/code/chasembowers/sequence-postprocessing-v2-67-lb/notebook
+    """
+    word_preds = valid_word_preds if not submit else test_word_preds
+    window = pred_indices if pred_indices else range(len(word_preds))
+    X = np.empty((int(1e6), 13), dtype=np.float32)
+    X_ind = 0
+    y = []
+    truePos = []
+    wordRanges = []
+    groups = []
+    for text_i in tqdm(window):
+        text_preds = np.array(word_preds[text_i])
+        num_words = len(text_preds)
+        disc_begin, disc_inside = disc_type_to_ids[disc_type]
+
+        # The probability that a word corresponds to either a 'B'-egin or 'I'-nside token for a class
+        prob_or = lambda word_preds: (1 - (1 - word_preds[:, disc_begin]) * (1 - word_preds[:, disc_inside]))
+
+        if not submit:
+            gt_idx = set()
+            gt_arr = np.zeros(num_words, dtype=int)
+            text_gt = valid.loc[valid.id == test_dataset.id.values[text_i]]
+            disc_gt = text_gt.loc[text_gt.discourse_type == disc_type]
+
+            # Represent the discourse instance locations in a hash set and an integer array for speed
+            for row_i, row in enumerate(disc_gt.iterrows()):
+                splt = row[1]['predictionstring'].split()
+                start, end = int(splt[0]), int(splt[-1]) + 1
+                gt_idx.add((start, end))
+                gt_arr[start:end] = row_i + 1
+            gt_lens = np.bincount(gt_arr)
+
+        # Iterate over every sub-sequence in the text
+        quants = np.linspace(0, 1, 7)  # number of target classes are 7
+        prob_begins = np.copy(text_preds[:, disc_begin])
+        min_begin = MIN_BEGIN_PROB[disc_type]
+        for pred_start in range(num_words):
+            prob_begin = prob_begins[pred_start]
+            if prob_begin > min_begin:
+                begin_or_inside = []
+                for pred_end in range(pred_start + 1, min(num_words + 1, pred_start + MAX_SEQ_LEN[disc_type] + 1)):
+
+                    new_prob = prob_or(text_preds[pred_end - 1:pred_end])
+                    insert_i = bisect_left(begin_or_inside, new_prob)
+                    begin_or_inside.insert(insert_i, new_prob[0])
+                    features = [pred_end - pred_start, pred_start / float(num_words), pred_end / float(num_words)]
+                    features.extend(list(sorted_quantile(begin_or_inside, quants)))
+                    features.append(prob_or(text_preds[pred_start - 1:pred_start])[0] if pred_start > 0 else 0)
+                    features.append(prob_or(text_preds[pred_end:pred_end + 1])[0] if pred_end < num_words else 0)
+                    features.append(text_preds[pred_start, disc_begin])
+                    exact_match = (pred_start, pred_end) in gt_idx if not submit else None
+                    if not submit:
+                        true_pos = False
+                        for match_cand, count in Counter(gt_arr[pred_start:pred_end]).most_common(2):
+                            if match_cand != 0 and count / float(pred_end - pred_start) >= .5 and float(count) / \
+                                gt_lens[match_cand] >= .5: true_pos = True
+                    else:
+                        true_pos = None
+
+                    if X_ind >= X.shape[0]:
+                        new_X = np.empty((X.shape[0] * 2, 13), dtype=np.float32)
+                        new_X[:X.shape[0]] = X
+                        X = new_X
+                    X[X_ind] = features
+                    X_ind += 1
+
+                    y.append(exact_match)
+                    truePos.append(true_pos)
+                    wordRanges.append((np.int16(pred_start), np.int16(pred_end)))
+                    groups.append(np.int16(text_i))
+
+    return SeqDataset(X[:X_ind], y, groups, wordRanges, truePos)

@@ -6,10 +6,10 @@
         "load_pretrained": false,
         "resume": false,
         "state_dict": "",
-        "name": "NERTrainer",
+        "name": "LongformerTrainer",
         "loop": "train_loop",
         "dataset": "NERDataset",
-        "model_arch": "NERModel",
+        "model_arch": "LongformerModel",
         "model": "allenai/longformer-large-4096-finetuned-triviaqa",
         "pooling": "SubSequenceGEMPooling"
     },
