@@ -12,7 +12,7 @@ def train_loop(cfg: any) -> None:
     """ Base Trainer Loop Function """
     tmp_valid = pd.read_csv('./dataset_class/data_folder/train.csv')
     fold_list = [i for i in range(cfg.n_folds)]
-    for fold in tqdm(fold_list):
+    for fold in tqdm(fold_list[2:3]):
         print(f'============== {fold}th Fold Train & Validation ==============')
         wandb.init(
             project=cfg.name,
@@ -25,7 +25,7 @@ def train_loop(cfg: any) -> None:
         early_stopping = EarlyStopping(mode=cfg.stop_mode, patience=3)
         early_stopping.detecting_anomaly()
 
-        val_score_max = -np.inf
+        val_score_max = get_save_thresholds(cfg)
         train_input = getattr(trainer, cfg.name)(cfg, g)  # init object
         loader_train, loader_valid, train, valid = train_input.make_batch(fold)
         model, criterion, val_metrics, optimizer, lr_scheduler = train_input.model_setting(len(train))
@@ -38,10 +38,10 @@ def train_loop(cfg: any) -> None:
             val_ids_list, val_pred_list = train_input.valid_fn(
                 loader_valid, model
             )
-
+            # 1) make prediction dataframe
             final_pred = []
             for i in range(len(valid)):
-                idx = val_ids_list[i]
+                idx = valid.id.values[i]
                 pred = val_pred_list[i]
                 tmp_pred = []
                 j = 0
@@ -68,10 +68,11 @@ def train_loop(cfg: any) -> None:
             batch_valid = tmp_valid.loc[tmp_valid['id'].isin(val_ids_list)].copy()
             f1_list = []
             unique_class = pred_df['class'].unique()
-            for c in unique_class:
-                pred_df = pred_df.loc[pred_df['class'] == c].copy()
+            for i, c in enumerate(unique_class):
+                print(f'iteration: {i}, class: {c}')
+                subset_pred_df = pred_df.loc[pred_df['class'] == c].copy()
                 gt_df = batch_valid.loc[batch_valid['discourse_type'] == c].copy()
-                f1_score = calculate_f1(pred_df, gt_df)
+                f1_score = calculate_f1(subset_pred_df, gt_df)
                 print(c, f1_score)  # print f1 score for each class
                 f1_list.append(f1_score)
             final_f1_score = np.mean(f1_list)  # average == 'micro'
@@ -99,7 +100,7 @@ def train_loop(cfg: any) -> None:
             early_stopping(final_f1_score)
             if early_stopping.early_stop:
                 break
-            del train_loss, train_accuracy, train_recall, train_precision, final_f1_score, pred_df, batch_valid
+            del train_loss, train_accuracy, train_recall, train_precision, final_f1_score, subset_pred_df, batch_valid
             gc.collect(), torch.cuda.empty_cache()
 
         del model, loader_train, loader_valid, train, valid  # delete for next fold

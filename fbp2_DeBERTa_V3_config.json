@@ -4,8 +4,9 @@
         "test": false,
         "checkpoint_dir": "./saved/model/",
         "load_pretrained": false,
-        "resume": false,
-        "state_dict": "",
+        "resume": true,
+        "state_dict": "fold2_microsoft-deberta-v3-large_state_dict.pth",
+        "before_best": 0.6286,
         "name": "NERTrainer",
         "loop": "train_loop",
         "dataset": "NERDataset",
@@ -26,8 +27,8 @@
         "n_folds": 5,
         "max_len": 2048,
         "epochs": 5,
-        "batch_size": 16,
-        "val_batch_size": 16
+        "batch_size": 8,
+        "val_batch_size": 8
     },
     "gradient_settings": {
         "amp_scaler": true,
@@ -46,7 +47,7 @@
     "optimizer_options": {
         "optimizer": "AdamW",
         "llrd": true,
-        "layerwise_lr": 5e-6,
+        "layerwise_lr": 5e-5,
         "layerwise_lr_decay": 0.9,
         "layerwise_weight_decay": 1e-2,
         "layerwise_adam_epsilon": 1e-6,
@@ -66,12 +67,12 @@
         "anneal_strategy": "cos"
     },
     "model_utils": {
-        "init_weight": "xavier_normal",
+        "init_weight": "normal",
         "stop_mode": "max",
         "freeze": true,
-        "num_freeze": 12,
+        "num_freeze": 4,
         "reinit": true,
-        "num_reinit": 4,
+        "num_reinit": 5,
         "awp": false,
         "nth_awp_start_epoch": 2,
         "awp_eps": 1e-2,

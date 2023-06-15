@@ -8,3 +8,4 @@
 /dataSources.local.xml
 .DS_Store
 dataset_class/data_folder/final_converted_train_df.csv
+*.pth

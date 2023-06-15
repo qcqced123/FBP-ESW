@@ -15,7 +15,7 @@ def check_library(checker: bool) -> tuple:
     """
     if not checker:
         _is_built = torch.backends.cudnn.is_available()
-        _is_enable = torch.backends.cudnn.enabledtorch.backends.cudnn.enabled
+        _is_enable = torch.backends.cudnn.enabled
         version = torch.backends.cudnn.version()
         device = (_is_built, _is_enable, version)
         return device
@@ -37,7 +37,7 @@ def all_type_seed(cfg, checker: bool) -> None:
         torch.cuda.manual_seed(cfg.seed)  # Pytorch GPU Random Seed Maker
         torch.cuda.manual_seed_all(cfg.seed)  # Pytorch Multi Core GPU Random Seed Maker
         # torch.cudnn seed
-        torch.backends.cudnn.deterministic = False
+        torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.enabled = True
 

@@ -2,6 +2,8 @@ import re
 import numpy as np
 import torch
 import transformers
+
+import configuration
 from torch import Tensor
 from dataclasses import dataclass
 
@@ -79,6 +81,18 @@ def get_scheduler(cfg, optimizer, len_train: int):
         num_cycles=cfg.num_cycles
     )
     return lr_scheduler
+
+
+def get_save_thresholds(cfg: configuration.CFG) -> float:
+    """ Get thresholds for saving model's weight """
+    if cfg.resume:
+        save_thresholds = cfg.before_best
+    else:
+        if cfg.stop_mode == 'max':
+            save_thresholds = -np.inf
+        else:
+            save_thresholds = np.inf  # stop_mode == min
+    return save_thresholds
 
 
 def get_name(cfg) -> str:

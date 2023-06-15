@@ -181,10 +181,11 @@ class CosineSimilarity(nn.Module):
         return F.cosine_similarity(x1, x2, self.dim, self.eps)  # need to add mean for batch
 
 
-def calc_overlap(row: pd.Series) -> list:
+def calc_overlap(row):
     """
-    Calculates the overlap between prediction and ground truth and overlap percentages
-    used for determining true positives for F1-Score, gt is abbreviation for ground truth
+    Calculates the overlap between prediction and
+    ground truth and overlap percentages used for determining
+    true positives.
     """
     set_pred = set(row.predictionstring_pred.split(' '))
     set_gt = set(row.predictionstring_gt.split(' '))
@@ -192,8 +193,8 @@ def calc_overlap(row: pd.Series) -> list:
     len_gt = len(set_gt)
     len_pred = len(set_pred)
     inter = len(set_gt.intersection(set_pred))
-    overlap_1 = inter / len_gt  # Recall
-    overlap_2 = inter / len_pred  # Precision
+    overlap_1 = inter / len_gt
+    overlap_2 = inter / len_pred
     return [overlap_1, overlap_2]
 
 

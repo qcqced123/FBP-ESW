@@ -1,5 +1,3 @@
-import gc
-import math
 import dataset_class.dataclass as dataset_class
 import model.metric as model_metric
 import model.metric_learning as metric_learning
@@ -28,7 +26,7 @@ class NERTrainer:
     """
     def __init__(self, cfg: configuration.CFG, generator: torch.Generator) -> None:
         self.cfg = cfg
-        self.model_name = self.cfg.model.split('/')[1]
+        self.model_name = get_name(self.cfg)
         self.generator = generator
         self.df = load_data('./dataset_class/data_folder/final_converted_train_df.csv')
         if self.cfg.gradient_checkpoint:
@@ -119,14 +117,14 @@ class NERTrainer:
             losses.update(loss.detach(), batch_size)
 
             if self.cfg.clipping_grad and ((step + 1) % self.cfg.n_gradient_accumulation_steps == 0 or self.cfg.n_gradient_accumulation_steps == 1):
-                scaler.unscale_(optimizer)  # unscale 풀어 보기
+                scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm(
                     model.parameters(),
                     self.cfg.max_grad_norm * self.cfg.n_gradient_accumulation_steps
                 )
-                scaler.step(optimizer)
-                scaler.update()
-                lr_scheduler.step()
+            scaler.step(optimizer)
+            scaler.update()
+            lr_scheduler.step()
             """ Calculate Train Metrics """
             flat_pred = torch.argmax(pred, dim=1)  # shape (batch_size * seq_len,)
 
@@ -165,7 +163,6 @@ class NERTrainer:
                     inputs[k] = v.to(self.cfg.device)  # prompt to GPU
 
                 val_ids_list += ids  # make list for calculating cross validation score
-                val_batch_size = self.cfg.val_batch_size
                 val_pred = model(inputs)  # inference for cross validation
 
                 flat_val_pred = torch.argmax(val_pred, dim=-1).detach().cpu().numpy()
@@ -183,6 +180,5 @@ class NERTrainer:
                             previous_word_idx = word_idx
                     predictions.append(prediction)
                 val_pred_list.extend(predictions)
-
         gc.collect()
         return val_ids_list, val_pred_list
