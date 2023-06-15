@@ -1,1 +1,0 @@
-{"<epoch> Train Loss": 0.47018179297447205, "<epoch> Train Accuracy": 0.8348735946898699, "<epoch> Train Recall": 0.8348735946898699, "<epoch> Train Precision": 0.8348735946898699, "<epoch> CV Score (Comp F1)": 0.6312829596236151, "_timestamp": 1686612324.235707, "_runtime": 17599.509557962418, "_step": 4, "_wandb": {"runtime": 17601}}
