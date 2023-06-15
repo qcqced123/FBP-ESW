@@ -12,7 +12,7 @@ def train_loop(cfg: any) -> None:
     """ Base Trainer Loop Function """
     tmp_valid = pd.read_csv('./dataset_class/data_folder/train.csv')
     fold_list = [i for i in range(cfg.n_folds)]
-    for fold in tqdm(fold_list[2:3]):
+    for fold in tqdm(fold_list[4:5]):
         print(f'============== {fold}th Fold Train & Validation ==============')
         wandb.init(
             project=cfg.name,
