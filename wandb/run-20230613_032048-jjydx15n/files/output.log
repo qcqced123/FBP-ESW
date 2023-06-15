@@ -1,0 +1,110 @@
+Downloading (…)lve/main/config.json: 100%|██████████████████████████████████████████████████████████████████| 866/866 [00:00<00:00, 276kB/s]
+Downloading (…)lve/main/config.json:   0%|                                                                        | 0.00/866 [00:00<?, ?B/s]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Some weights of the model checkpoint at allenai/longformer-large-4096-finetuned-triviaqa were not used when initializing LongformerModel: ['qa_outputs.weight', 'qa_outputs.bias']
+- This IS expected if you are initializing LongformerModel from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing LongformerModel from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+  0%|                                                                                                              | 0/1560 [00:00<?, ?it/s]
+Traceback (most recent call last):                                                                                 | 0/1560 [00:00<?, ?it/s]
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/train.py", line 21, in <module>
+    main('fbp2_LongFormer_config.json', CFG)
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/train.py", line 16, in main
+    getattr(train_loop, cfg.loop)(cfg)
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/trainer/train_loop.py", line 35, in train_loop
+    train_loss, train_accuracy, train_recall, train_precision = train_input.train_fn(
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/trainer/trainer.py", line 114, in train_fn
+    pred = model(inputs).view(-1, 15)
+  File "/home/qcqced/anaconda3/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1501, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/model/model.py", line 90, in forward
+    outputs = self.feature(
+  File "/home/qcqced/바탕화면/ML_Test/FeedBackPrize_2/model/model.py", line 76, in feature
+    outputs = self.model(
+  File "/home/qcqced/anaconda3/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1501, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/qcqced/anaconda3/lib/python3.9/site-packages/transformers/models/longformer/modeling_longformer.py", line 1750, in forward
+    encoder_outputs = self.encoder(
+  File "/home/qcqced/anaconda3/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1501, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/qcqced/anaconda3/lib/python3.9/site-packages/transformers/models/longformer/modeling_longformer.py", line 1294, in forward
+    is_global_attn = is_index_global_attn.flatten().any().item()
+RuntimeError: CUDA error: device-side assert triggered
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.

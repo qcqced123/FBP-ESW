@@ -5,7 +5,6 @@ import transformers
 
 import configuration
 from torch import Tensor
-from typing import List
 from dataclasses import dataclass
 
 
@@ -47,38 +46,6 @@ def get_optimizer_params(model, encoder_lr, decoder_lr, weight_decay):
          'lr': decoder_lr, 'weight_decay': 0.0}
     ]
     return optimizer_parameters
-
-
-class SequenceBucketingCollate:
-    """
-    Advanced Version of DynamicLengthCollate for more sutiable with this competition
-    Args:
-        batch: list of dictionary from custom Dataset Class & tokenizer
-    Reference:
-        https://www.kaggle.com/code/shahules/guide-pytorch-data-samplers-sequence-bucketing/notebook
-        https://www.kaggle.com/code/bacicnikola/sequence-bucketing-pytorch-implementation/notebook
-    """
-    def __call__(self, batch: List[dict]) -> dict:
-        output = dict()
-
-        # since our custom Dataset's __getitem__ method returns dictionary
-        # the collate_fn function will receive list of dictionaries
-        output['input_ids'] = [sample['input_ids'] for sample in batch]
-        output['attention_mask'] = [sample['attention_mask'] for sample in batch]
-
-        # calculate max token length of this batch
-        batch_max = max([len(ids) for ids in output['input_ids']])
-
-        # add padding
-        output['input_ids'] = [sample + (batch_max - len(sample)) * [tokenizer.pad_token_id] for sample in
-                               output['input_ids']]
-        output['attention_mask'] = [sample + (batch_max - len(sample)) * [0] for sample in output['attention_mask']]
-
-        # convert to tensors
-        output['input_ids'] = torch.tensor(output['input_ids'], dtype=torch.long)
-        output['attention_mask'] = torch.tensor(output['attention_mask'], dtype=torch.long)
-
-        return output
 
 
 def collate(inputs):
