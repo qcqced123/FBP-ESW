@@ -10,7 +10,7 @@
         "loop": "train_loop",
         "dataset": "NERDataset",
         "model_arch": "LongformerModel",
-        "model": "allenai/longformer-large-4096-finetuned-triviaqa",
+        "model": "allenai/longformer-base-4096",
         "pooling": "SubSequenceGEMPooling"
     },
     "common_settings": {
@@ -34,7 +34,7 @@
         "gradient_checkpoint": true,
         "clipping_grad": true,
         "n_gradient_accumulation_steps": 1,
-        "max_grad_norm": 10
+        "max_grad_norm": 1000
     },
     "loss_options": {
         "loss_fn": "CrossEntropyLoss",

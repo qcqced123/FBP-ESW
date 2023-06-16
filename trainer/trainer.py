@@ -282,8 +282,7 @@ class LongformerTrainer:
             labels = inputs.labels.view(-1)  # labels to GPU
             batch_size = self.cfg.batch_size
             with torch.cuda.amp.autocast(enabled=self.cfg.amp_scaler):
-                pred = model(inputs).view(-1, 15)
-                loss = criterion(pred, labels)  # loss = criterion(pred.view(-1, 15), labels.view(-1))
+                loss, logit = model(inputs)
             if self.cfg.n_gradient_accumulation_steps > 1:
                 loss = loss / self.cfg.n_gradient_accumulation_steps
             scaler.scale(loss).backward()
@@ -299,6 +298,7 @@ class LongformerTrainer:
             scaler.update()
             lr_scheduler.step()
             """ Calculate Train Metrics """
+            pred = logit.view(-1, 15)  # model.num_labels == 15
             flat_pred = torch.argmax(pred, dim=1)  # shape (batch_size * seq_len,)
 
             active_label = labels != -100  # shape (batch_size, seq_len)
@@ -336,9 +336,9 @@ class LongformerTrainer:
                     inputs[k] = v.to(self.cfg.device)  # prompt to GPU
 
                 val_ids_list += ids  # make list for calculating cross validation score
-                val_pred = model(inputs)  # inference for cross validation
+                _, val_logit = model(inputs)  # inference for cross validation
 
-                flat_val_pred = torch.argmax(val_pred, dim=-1).detach().cpu().numpy()
+                flat_val_pred = torch.argmax(val_logit, dim=-1).detach().cpu().numpy()
                 predictions = []
                 for k, text_pred in enumerate(flat_val_pred):
                     token_pred = [ids_to_labels[i] for i in text_pred]
