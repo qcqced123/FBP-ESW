@@ -6,6 +6,7 @@
         "load_pretrained": false,
         "resume": false,
         "state_dict": "",
+        "before_best": 0.6286,
         "name": "LongformerTrainer",
         "loop": "train_loop",
         "dataset": "NERDataset",
