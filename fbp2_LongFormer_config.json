@@ -10,7 +10,7 @@
         "loop": "train_loop",
         "dataset": "NERDataset",
         "model_arch": "LongformerModel",
-        "model": "allenai/longformer-base-4096",
+        "model": "allenai/longformer-large-4096",
         "pooling": "SubSequenceGEMPooling"
     },
     "common_settings": {

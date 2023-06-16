@@ -78,11 +78,11 @@ def init_weights(auto_cfg, module) -> None:
 
 def reinit_topk(model, num_layers):
     """
-    Re-initialize the last-k transformer Encoder layers.
+    Re-initialize the last-k longformer Encoder layers.
     Encoder Layer: Embedding, Attention Head, LayerNorm, Feed Forward
     Args:
         model: The target transformer model.
         num_layers: The number of layers to be re-initialized.
     """
     if num_layers > 0:
-        model.encoder.layer[-num_layers:].apply(model._init_weights)
+        model.longformer.encoder.layer[-num_layers:].apply(model._init_weights)
