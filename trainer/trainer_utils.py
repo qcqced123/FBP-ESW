@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 
 def get_optimizer_grouped_parameters(model, layerwise_lr, layerwise_weight_decay, layerwise_lr_decay):
-    """ Grouped Version: Layer-wise learning rate decay """
+    """ Grouped & Task Specify Version: Layer-wise learning rate decay """
     no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
     # initialize lr for task specific layer
     optimizer_grouped_parameters = [{"params": [p for n, p in model.named_parameters() if "model" not in n],
@@ -18,6 +18,7 @@ def get_optimizer_grouped_parameters(model, layerwise_lr, layerwise_weight_decay
                                      "lr": layerwise_lr,
                                      }, ]
     # initialize lrs for every layer
+    # layers = [model.model.longformer.embeddings] + list(model.model.longformer.encoder.layer)
     layers = [model.model.embeddings] + list(model.model.encoder.layer)
     layers.reverse()
     lr = layerwise_lr

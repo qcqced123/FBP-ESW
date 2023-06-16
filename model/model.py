@@ -131,6 +131,7 @@ class LongformerModel(nn.Module):
         )
 
         if cfg.reinit:
+            self._init_weights(self.model.classifier)
             reinit_topk(self.model, cfg.num_reinit)
 
         if cfg.freeze:

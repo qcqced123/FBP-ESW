@@ -85,4 +85,5 @@ def reinit_topk(model, num_layers):
         num_layers: The number of layers to be re-initialized.
     """
     if num_layers > 0:
-        model.longformer.encoder.layer[-num_layers:].apply(model._init_weights)
+        model.encoder.layer[-num_layers:].apply(model._init_weights)
+        # model.longformer.encoder.layer[-num_layers:].apply(model._init_weights)
