@@ -65,7 +65,6 @@ class LongformerModel(nn.Module):
         hidden_states: List of hidden states at the output of each layer plus the initial embedding outputs
         attentions: List of attention weights after each layer
         global_attention: List of global attention weights after each layer
-
     This pipeline apply B.I.O Style, so the number of classes is 15 which is 7 unique classes original
     Each of 7 unique classes has sub 2 classes (B, I) => 14 classes
     And 1 class for O => 1 class
